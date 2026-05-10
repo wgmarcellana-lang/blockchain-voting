@@ -2,11 +2,13 @@
 
 VoteChain is a local blockchain voting app for the ACOMSS election system.
 
+The project is intentionally set up for small demos, presentations, and prototypes. It uses a local Hardhat blockchain for smart-contract behavior and a local SQLite database for student registration data.
+
 The project has two folders:
 
 ```text
 blockchain/   Smart contract and Hardhat local blockchain
-votechain/    Next.js web app, API routes, Prisma, and Supabase connection
+votechain/    Next.js web app, API routes, Prisma, and SQLite database
 ```
 
 Follow the steps below in order.
@@ -19,7 +21,6 @@ Install these first:
 - Git
 - MetaMask browser extension
 - A code editor, preferably VS Code
-- Supabase account access
 
 Check Node, npm, and Git:
 
@@ -79,54 +80,7 @@ npm.cmd install
 npm.cmd run db:generate
 ```
 
-## 4. Set Up Supabase
-
-Choose one option.
-
-### Option A: You Were Invited to the Existing Supabase Project
-
-Use this if the project owner invited you to the same Supabase project.
-
-1. Accept the Supabase invite from your email.
-2. Open the shared Supabase project.
-3. Ask the project owner for the environment values.
-4. Do not run database migration or seed commands unless the owner tells you to.
-
-The owner should privately give you these values:
-
-```env
-DATABASE_URL="..."
-DIRECT_URL="..."
-NEXT_PUBLIC_SUPABASE_URL="..."
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="..."
-ADMIN_USERNAME="..."
-ADMIN_PASSWORD="..."
-ADMIN_SESSION_SECRET="..."
-```
-
-### Option B: You Are Creating a New Supabase Project
-
-Use this if you are setting up your own database.
-
-1. Create a new Supabase project.
-2. Save the database password.
-3. Get the database connection strings from Supabase.
-4. Get the project URL and publishable key.
-
-You need:
-
-```env
-DATABASE_URL="postgresql://..."
-DIRECT_URL="postgresql://..."
-NEXT_PUBLIC_SUPABASE_URL="https://..."
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="..."
-```
-
-Use the pooled connection string for `DATABASE_URL`.
-
-Use the direct connection string for `DIRECT_URL`.
-
-## 5. Create Environment Files
+## 4. Create Environment Files
 
 From the `votechain` folder:
 
@@ -142,7 +96,19 @@ votechain/.env.local
 votechain/.env
 ```
 
-Fill in the Supabase and admin values.
+For local SQLite, keep:
+
+```env
+DATABASE_URL="file:./dev.db"
+```
+
+Set the admin values:
+
+```env
+ADMIN_USERNAME="acomss"
+ADMIN_PASSWORD="acomss"
+ADMIN_SESSION_SECRET="replace_with_a_long_random_string"
+```
 
 Leave these contract values as `0x` for now:
 
@@ -164,17 +130,19 @@ Important:
 - Never commit `.env` or `.env.local`.
 - If you edit `.env.local` while the app is running, restart the app.
 
-## 6. Set Up the Database
-
-Only do this step if you created a new Supabase project.
-
-Skip this step if you were invited to the existing shared Supabase project, unless the project owner tells you to run it.
+## 5. Set Up the Local SQLite Database
 
 From the `votechain` folder:
 
 ```bash
 npm run db:migrate
 npm run db:seed
+```
+
+The database file is created at:
+
+```text
+votechain/prisma/dev.db
 ```
 
 The seed command adds demo students:
@@ -184,7 +152,15 @@ The seed command adds demo students:
 202213764  constante.dizon.ii@adamson.edu.ph
 ```
 
-## 7. Start the Local Blockchain
+To reset demo data later:
+
+```bash
+rm -f prisma/dev.db
+npm run db:migrate
+npm run db:seed
+```
+
+## 6. Start the Local Blockchain
 
 Open a new terminal.
 
@@ -199,7 +175,7 @@ Keep this terminal open.
 
 Hardhat will show test accounts and private keys.
 
-## 8. Add Hardhat Network to MetaMask
+## 7. Add Hardhat Network to MetaMask
 
 Open MetaMask and add this network:
 
@@ -216,7 +192,7 @@ Use Account #0 as the admin wallet.
 
 For student testing, import or use a different account, such as Hardhat Account #1.
 
-## 9. Deploy the Smart Contract
+## 8. Deploy the Smart Contract
 
 Open another terminal.
 
@@ -241,7 +217,7 @@ votechain/.env.local
 votechain/.env
 ```
 
-## 10. Start the Web App
+## 9. Start the Web App
 
 Open another terminal.
 
@@ -258,7 +234,7 @@ Open the app:
 http://localhost:3000
 ```
 
-## 11. Try the Full Demo
+## 10. Try the Full Demo
 
 ### Admin Setup
 
@@ -374,15 +350,14 @@ You must:
 4. Add positions and candidates again.
 5. Approve students again.
 
-### Prisma Cannot Connect to Supabase
+### Prisma Cannot Open the SQLite Database
 
 Check:
 
-1. `DATABASE_URL` is correct.
-2. `DIRECT_URL` is correct.
-3. Your Supabase password is correct.
-4. Your Supabase project is active.
-5. The connection strings include `sslmode=require`.
+1. `DATABASE_URL` is set to `file:./dev.db`.
+2. You ran `npm run db:migrate` from the `votechain` folder.
+3. The local database exists at `votechain/prisma/dev.db`.
+4. You restarted the web app after changing env files.
 
 ### The Student Cannot Vote
 
@@ -400,6 +375,7 @@ Never commit:
 ```text
 votechain/.env
 votechain/.env.local
+votechain/prisma/dev.db
 blockchain/node_modules/
 votechain/node_modules/
 votechain/.next/
@@ -407,4 +383,4 @@ votechain/.next/
 
 ---
 
-VoteChain — Adamson Computer Science Society
+VoteChain - Adamson Computer Science Society

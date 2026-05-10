@@ -7,8 +7,8 @@ export default function Home() {
   const builtWith = [
     { name: "Next.js", logo: "/logos/nextjs.svg", className: "h-5 w-5" },
     { name: "Node.js", logo: "/logos/nodejs.svg", className: "h-5 w-auto max-w-[28px]" },
-    { name: "Supabase", logo: "/logos/supabase.svg", className: "h-5 w-5" },
-    { name: "PostgreSQL", logo: "/logos/postgresql.svg", className: "h-5 w-5" },
+    { name: "Prisma", logo: "/logos/prisma.svg", className: "h-5 w-5" },
+    { name: "SQLite", logo: "/logos/sqlite.svg", className: "h-5 w-5" },
     { name: "MetaMask", logo: "/logos/metamask.svg", className: "h-5 w-5" },
     { name: "Solidity", logo: "/logos/solidity.svg", className: "h-5 w-5" },
     { name: "Hardhat", logo: "/logos/hardhat.svg", className: "h-5 w-5" },

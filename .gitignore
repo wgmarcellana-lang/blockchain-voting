@@ -20,6 +20,10 @@ blockchain/cache/
 blockchain/typechain-types/
 blockchain/Library/
 
+# Local SQLite database
+votechain/prisma/dev.db
+votechain/prisma/dev.db-journal
+
 # Logs and local caches
 .npm/
 .turbo/

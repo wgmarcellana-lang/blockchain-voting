@@ -8,7 +8,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "prisma db execute --schema prisma/schema.prisma --file prisma/migrations/20260428020819_init/migration.sql && prisma generate",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts"
   },
@@ -17,8 +17,6 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.18.0",
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.105.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
