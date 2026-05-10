@@ -65,6 +65,13 @@ Keep this terminal open.
 
 ## 5. Add Hardhat to MetaMask
 
+If this is your first time opening MetaMask:
+
+1. Click `Create a new wallet`.
+2. You do not need Google or Apple sign-in.
+3. Choose `Use Secret Recovery Phrase` if MetaMask asks how you want to set up the wallet.
+4. Finish the setup with any local testing password.
+
 Add this network in MetaMask:
 
 ```text
@@ -74,12 +81,32 @@ Chain ID: 31337
 Currency symbol: ETH
 ```
 
-Import Hardhat Account #0 into MetaMask using the private key shown in the Hardhat terminal.
+To add the network:
+
+1. Open MetaMask.
+2. Click the network dropdown at the top.
+3. Click `Add a custom network` or `Add network manually`.
+4. Enter the Hardhat Local values above.
+5. Save and select `Hardhat Local`.
+
+Import Hardhat accounts:
+
+1. Go back to the terminal running `npx hardhat node`.
+2. Copy the private key for `Account #0`.
+3. In MetaMask, open the account menu.
+4. Click `Add wallet`.
+5. Click `Import an account`.
+6. Keep the type as `Private key`.
+7. Paste the private key.
+8. Click `Import`.
+9. Repeat with `Account #1` if you want a separate student wallet.
 
 Use:
 
 - Account #0 as the admin wallet
 - Account #1 or another account as the student wallet
+
+If MetaMask shows `10,000 ETH` on `Hardhat Local`, it is connected correctly.
 
 ## 6. Deploy the Contract
 
