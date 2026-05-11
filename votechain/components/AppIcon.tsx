@@ -10,7 +10,6 @@ const icons = {
   graduation: "/icons/graduation-cap-icon.svg",
   id: "/icons/id-proof-line-icon.svg",
   link: "/icons/link-icon.svg",
-  metamask: "/icons/metamask-icon.svg",
   padlock: "/icons/padlock-icon.svg",
   party: "/icons/party-hat-icon.svg",
   race: "/icons/race-icon.svg",

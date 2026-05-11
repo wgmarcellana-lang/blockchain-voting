@@ -1,77 +1,105 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Head from "next/head";
 import axios from "axios";
 import Navbar from "@/components/Navbar";
 import CandidateCard from "@/components/CandidateCard";
 import BallotReview from "@/components/BallotReview";
 import AppIcon, { AppIconName } from "@/components/AppIcon";
-import { connectWallet, getSignerContract, getReadOnlyContract } from "@/lib/contract";
-import { PositionUI, CandidateUI, BallotSelections } from "@/types";
+import { BallotSelections, CandidateUI, PositionUI } from "@/types";
 
-type VoteStatus = "idle" | "checking" | "not_connected" | "not_whitelisted" | "already_voted" | "voting_closed" | "ready" | "reviewing" | "submitting" | "success";
+type VoteStatus =
+  | "checking_session"
+  | "login"
+  | "checking"
+  | "not_approved"
+  | "already_voted"
+  | "voting_closed"
+  | "ready"
+  | "reviewing"
+  | "submitting"
+  | "success";
 
 export default function VotePage() {
-  const [status, setStatus] = useState<VoteStatus>("idle");
-  const [walletAddress, setWalletAddress] = useState("");
+  const [status, setStatus] = useState<VoteStatus>("checking_session");
+  const [studentName, setStudentName] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [email, setEmail] = useState("");
   const [positions, setPositions] = useState<PositionUI[]>([]);
   const [candidates, setCandidates] = useState<CandidateUI[]>([]);
   const [selections, setSelections] = useState<BallotSelections>({});
   const [txHash, setTxHash] = useState("");
   const [error, setError] = useState("");
 
-  const checkWalletStatus = useCallback(async (address: string) => {
+  const checkVoteStatus = async () => {
     setStatus("checking");
     setError("");
+
     try {
-      const contract = getReadOnlyContract();
-      const [isOpen, isWhitelisted, hasVoted] = await Promise.all([
-        contract.votingOpen(),
-        contract.isWhitelisted(address),
-        contract.hasVoted(address),
+      const [{ data: statusData }, { data: ballotData }] = await Promise.all([
+        axios.get("/api/vote/status"),
+        axios.get("/api/positions"),
       ]);
 
-      if (!isOpen) { setStatus("voting_closed"); return; }
-      if (!isWhitelisted) { setStatus("not_whitelisted"); return; }
-      if (hasVoted) { setStatus("already_voted"); return; }
+      const voteStatus = statusData.data;
+      setStudentName(voteStatus.student.name);
+      setStudentId(voteStatus.student.studentId);
 
-      // Load ballot data
-      const { data } = await axios.get("/api/positions");
-      setPositions(data.data.positions);
-      setCandidates(data.data.candidates);
+      if (!voteStatus.votingOpen) {
+        setStatus("voting_closed");
+        return;
+      }
+
+      if (!voteStatus.authorized) {
+        setStatus("not_approved");
+        return;
+      }
+
+      if (voteStatus.hasVoted) {
+        setStatus("already_voted");
+        return;
+      }
+
+      setPositions(ballotData.data.positions);
+      setCandidates(ballotData.data.candidates);
       setStatus("ready");
-    } catch {
-      setError("Failed to connect to the contract. Make sure the Hardhat node is running and MetaMask is on Hardhat Local (Chain ID 31337).");
-      setStatus("idle");
-    }
-  }, []);
-
-  const handleConnect = async () => {
-    setError("");
-    try {
-      const address = await connectWallet();
-      setWalletAddress(address);
-      await checkWalletStatus(address);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to connect wallet.");
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        setStatus("login");
+        return;
+      }
+
+      const message = axios.isAxiosError(err) ? err.response?.data?.error : "Failed to load voting status.";
+      setError(message || "Failed to load voting status.");
+      setStatus("login");
     }
   };
 
-  // Listen for account change
   useEffect(() => {
-    if (typeof window === "undefined" || !window.ethereum) return;
-    const handler = (accounts: unknown) => {
-      const accs = accounts as string[];
-      if (accs.length > 0) {
-        setWalletAddress(accs[0]);
-        checkWalletStatus(accs[0]);
-      } else {
-        setStatus("not_connected");
-        setWalletAddress("");
-      }
-    };
-    window.ethereum.on("accountsChanged", handler);
-    return () => window.ethereum?.removeListener("accountsChanged", handler);
-  }, [checkWalletStatus]);
+    checkVoteStatus();
+  }, []);
+
+  const handleLogin = async () => {
+    setError("");
+    try {
+      await axios.post("/api/auth/student-login", { studentId, email });
+      await checkVoteStatus();
+    } catch (err: unknown) {
+      const message = axios.isAxiosError(err) ? err.response?.data?.error : "Failed to sign in.";
+      setError(message || "Failed to sign in.");
+      setStatus("login");
+    }
+  };
+
+  const handleLogout = async () => {
+    await axios.post("/api/auth/student-logout");
+    setSelections({});
+    setTxHash("");
+    setStudentName("");
+    setStudentId("");
+    setEmail("");
+    setError("");
+    setStatus("login");
+  };
 
   const handleSelect = (positionId: string, candidateId: string) => {
     setSelections((prev) => ({ ...prev, [positionId]: candidateId }));
@@ -82,19 +110,14 @@ export default function VotePage() {
   const handleSubmitVote = async () => {
     setStatus("submitting");
     setError("");
+
     try {
-      const contract = await getSignerContract();
-
-      const positionIds = Object.keys(selections).map(BigInt);
-      const candidateIds = Object.values(selections).map(BigInt);
-
-      const tx = await contract.vote(positionIds, candidateIds);
-      await tx.wait();
-      setTxHash(tx.hash);
+      const { data } = await axios.post("/api/vote/submit", { selections });
+      setTxHash(data.data.txHash);
       setStatus("success");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Transaction failed.";
-      setError(msg.includes("user rejected") ? "Transaction was rejected in MetaMask." : msg);
+      const message = axios.isAxiosError(err) ? err.response?.data?.error : "Vote submission failed.";
+      setError(message || "Vote submission failed.");
       setStatus("reviewing");
     }
   };
@@ -102,11 +125,10 @@ export default function VotePage() {
   return (
     <>
       <Head>
-        <title>Vote — VoteChain</title>
+        <title>Vote - VoteChain</title>
       </Head>
       <Navbar />
 
-      {/* Ballot review modal */}
       {(status === "reviewing" || status === "submitting") && (
         <BallotReview
           positions={positions}
@@ -122,48 +144,63 @@ export default function VotePage() {
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-8">
             <h1 className="font-heading text-4xl font-bold text-au-blue">Cast Your Vote</h1>
-            <p className="text-gray-500 mt-2 text-sm">ACOMSS 2026–2027 Elections</p>
+            <p className="text-gray-500 mt-2 text-sm">ACOMSS 2026-2027 Elections</p>
           </div>
 
-          {/* ── Not connected ── */}
-          {(status === "idle" || status === "not_connected") && (
+          {status === "checking_session" || status === "checking" ? (
+            <StatusCard icon="audit" title="Checking voting access..." desc="Verifying your approved session and blockchain status." />
+          ) : null}
+
+          {status === "login" && (
             <StatusCard
-              icon="metamask"
-              title="Connect Your Wallet"
-              desc="Connect your whitelisted MetaMask wallet to access the ballot."
-              action={<button onClick={handleConnect} className="btn-gold">Connect MetaMask</button>}
+              icon="shield"
+              title="Student Sign In"
+              desc="Sign in with your approved student details to access the ballot."
               error={error}
+              action={
+                <div className="w-full max-w-sm space-y-3 text-left">
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Student ID"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                  />
+                  <input
+                    type="email"
+                    className="input-field"
+                    placeholder="youremail@adamson.edu.ph"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                  />
+                  <button onClick={handleLogin} className="btn-gold w-full">Sign In to Vote</button>
+                </div>
+              }
             />
           )}
 
-          {/* ── Checking ── */}
-          {status === "checking" && (
-            <StatusCard icon="audit" title="Checking eligibility..." desc="Verifying your wallet on the blockchain." />
-          )}
-
-          {/* ── Not whitelisted ── */}
-          {status === "not_whitelisted" && (
+          {status === "not_approved" && (
             <StatusCard
               icon="padlock"
-              title="Wallet Not Approved"
-              desc={`Your wallet (${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}) is not on the whitelist. Please register first and wait for admin approval.`}
+              title="Voting Access Not Approved"
+              desc="Your account is not currently authorized to cast a vote on-chain. Please contact the election admin if this seems incorrect."
               action={<a href="/register" className="btn-primary inline-block">Go to Registration</a>}
               variant="warning"
             />
           )}
 
-          {/* ── Already voted ── */}
           {status === "already_voted" && (
             <StatusCard
               icon="check"
               title="You Have Already Voted"
-              desc="Your vote has been recorded on the blockchain. Thank you for participating!"
+              desc="Your vote has already been recorded on the blockchain. Thank you for participating."
               action={<a href="/results" className="btn-primary inline-block">View Results</a>}
               variant="success"
             />
           )}
 
-          {/* ── Voting closed ── */}
           {status === "voting_closed" && (
             <StatusCard
               icon="race"
@@ -173,7 +210,6 @@ export default function VotePage() {
             />
           )}
 
-          {/* ── Success ── */}
           {status === "success" && (
             <StatusCard
               icon="party"
@@ -187,43 +223,34 @@ export default function VotePage() {
                       <span className="font-semibold text-gray-700">Tx Hash:</span> {txHash}
                     </div>
                   )}
-                  <a href="/results" className="btn-primary inline-block">View Results</a>
+                  <div className="flex flex-col gap-3">
+                    <a href="/results" className="btn-primary inline-block">View Results</a>
+                    <button onClick={handleLogout} className="btn-outline">Sign Out</button>
+                  </div>
                 </div>
               }
             />
           )}
 
-          {/* ── Ballot ── */}
           {status === "ready" && (
             <div className="space-y-6">
-              {/* Wallet badge */}
               <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs text-gray-500">Connected:</span>
-                <span className="text-xs font-mono font-semibold text-au-blue">
-                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                </span>
-                <span className="ml-auto badge-approved inline-flex items-center gap-1">
-                  <AppIcon name="check" className="h-3.5 w-3.5 text-green-700" />
-                  Whitelisted
-                </span>
+                <span className="text-xs text-gray-500">Signed in as:</span>
+                <span className="text-xs font-semibold text-au-blue">{studentName}</span>
+                <span className="ml-auto text-xs font-mono text-gray-400">{studentId}</span>
+                <button onClick={handleLogout} className="btn-outline text-xs py-1 px-3">Sign Out</button>
               </div>
 
-              {/* Skipped warning banner */}
               {skippedPositions.length > 0 && Object.keys(selections).length > 0 && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-yellow-700 text-sm">
                   You&apos;re preparing a partial ballot. No candidate selected for:{" "}
-                  <span className="font-semibold">
-                    {skippedPositions.map((p) => p.name).join(", ")}
-                  </span>
+                  <span className="font-semibold">{skippedPositions.map((p) => p.name).join(", ")}</span>
                 </div>
               )}
 
-              {/* Positions */}
               {positions.map((position) => {
-                const positionCandidates = candidates.filter(
-                  (c) => c.positionId === position.id
-                );
+                const positionCandidates = candidates.filter((c) => c.positionId === position.id);
                 return (
                   <div key={position.id} className="card">
                     <div className="card-header flex items-center justify-between">
@@ -262,7 +289,6 @@ export default function VotePage() {
                 </div>
               )}
 
-              {/* Submit */}
               <div className="sticky bottom-4">
                 <button
                   onClick={() => setStatus("reviewing")}
@@ -280,9 +306,13 @@ export default function VotePage() {
   );
 }
 
-// ── Status card helper ────────────────────────────────────────────────────────
 function StatusCard({
-  icon, title, desc, action, error, variant,
+  icon,
+  title,
+  desc,
+  action,
+  error,
+  variant,
 }: {
   icon: AppIconName;
   title: string;

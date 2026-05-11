@@ -1,4 +1,3 @@
-// ─── Contract Types ──────────────────────────────────────────────────────────
 export interface Position {
   id: bigint;
   name: string;
@@ -13,7 +12,6 @@ export interface Candidate {
   active: boolean;
 }
 
-// ─── UI-friendly types (serialized from contract) ────────────────────────────
 export interface PositionUI {
   id: string;
   name: string;
@@ -26,17 +24,15 @@ export interface CandidateUI {
   voteCount: number;
 }
 
-// ─── Ballot ───────────────────────────────────────────────────────────────────
-// key = positionId (string), value = candidateId (string)
 export type BallotSelections = Record<string, string>;
 
-// ─── Registration ─────────────────────────────────────────────────────────────
 export interface PendingRegistration {
   id: number;
   studentId: string;
-  walletAddress: string;
+  voterId: string;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
+  approvedAt?: string | null;
   student: {
     name: string;
     studentId: string;
@@ -44,21 +40,8 @@ export interface PendingRegistration {
   };
 }
 
-// ─── API Responses ────────────────────────────────────────────────────────────
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
-}
-
-// ─── Window ethereum extension ────────────────────────────────────────────────
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      on: (event: string, handler: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
-      isMetaMask?: boolean;
-    };
-  }
 }

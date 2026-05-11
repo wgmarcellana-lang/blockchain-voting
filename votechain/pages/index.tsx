@@ -9,7 +9,6 @@ export default function Home() {
     { name: "Node.js", logo: "/logos/nodejs.svg", className: "h-5 w-auto max-w-[28px]" },
     { name: "Prisma", logo: "/logos/prisma.svg", className: "h-5 w-5" },
     { name: "SQLite", logo: "/logos/sqlite.svg", className: "h-5 w-5" },
-    { name: "MetaMask", logo: "/logos/metamask.svg", className: "h-5 w-5" },
     { name: "Solidity", logo: "/logos/solidity.svg", className: "h-5 w-5" },
     { name: "Hardhat", logo: "/logos/hardhat.svg", className: "h-5 w-5" },
   ];
@@ -22,10 +21,10 @@ export default function Home() {
       desc: "Only verified students with valid school credentials can proceed. No outsiders, no duplicates.",
     },
     {
-      icon: "metamask" as AppIconName,
+      icon: "shield" as AppIconName,
       tone: "bg-yellow-50",
-      title: "Wallet-Based Voting",
-      desc: "Your MetaMask wallet is linked to your student record. One student, one wallet, one vote.",
+      title: "Session-Based Voting",
+      desc: "Approved students sign in with their school identity and cast votes through a secure server-managed flow.",
     },
     {
       icon: "link" as AppIconName,
@@ -37,7 +36,7 @@ export default function Home() {
       icon: "ban" as AppIconName,
       tone: "bg-red-50",
       title: "Double-Vote Prevention",
-      desc: "The contract enforces a strict one-wallet-one-vote rule at the blockchain level.",
+      desc: "The contract enforces a strict one-approved-voter-one-vote rule at the blockchain level.",
     },
     {
       icon: "chart" as AppIconName,
@@ -49,7 +48,7 @@ export default function Home() {
       icon: "shield" as AppIconName,
       tone: "bg-gray-100",
       title: "Hybrid Architecture",
-      desc: "Student data stays off-chain while wallet approvals and votes are handled on-chain.",
+      desc: "Student data stays off-chain while approved voter IDs and votes are handled on-chain.",
     },
   ];
 
@@ -69,18 +68,18 @@ export default function Home() {
       desc: "Send your verified student details for admin review and approval.",
     },
     {
-      icon: "metamask" as AppIconName,
+      icon: "shield" as AppIconName,
       ring: "border-red-200 bg-red-50",
       step: "3",
-      title: "Connect Wallet",
-      desc: "Link your MetaMask wallet and sign a message to prove ownership.",
+      title: "Get Approved",
+      desc: "An admin reviews your registration and activates your voter access on-chain.",
     },
     {
       icon: "ballot" as AppIconName,
       ring: "border-green-200 bg-green-50",
       step: "4",
       title: "Cast Your Vote",
-      desc: "Choose your candidates. Your whitelisted wallet submits a transaction to the smart contract.",
+      desc: "Choose your candidates. The backend submits your approved vote to the smart contract.",
     },
     {
       icon: "link" as AppIconName,
@@ -182,7 +181,7 @@ export default function Home() {
             How It Works
           </h2>
           <p className="text-gray-400 text-sm text-center mb-12">
-            Five steps from student to verified on-chain voter.
+            Five steps from student identity to verified on-chain vote.
           </p>
           <div className="grid gap-8 sm:grid-cols-5">
             {steps.map((s, index) => (

@@ -4,37 +4,30 @@ import axios from "axios";
 import Navbar from "@/components/Navbar";
 import StepBar from "@/components/StepBar";
 import AppIcon from "@/components/AppIcon";
-import { connectWallet } from "@/lib/contract";
 
 const STEPS = [
   { label: "Verify Identity", description: "Enter your student credentials" },
-  { label: "Connect Wallet", description: "Link your MetaMask wallet" },
-  { label: "Confirm", description: "Submit your registration" },
-  { label: "Done", description: "Await admin approval" },
+  { label: "Confirm Registration", description: "Submit for admin approval" },
+  { label: "Done", description: "Wait for approval" },
 ];
 
 export default function RegisterPage() {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Step 0 form
   const [studentId, setStudentId] = useState("");
   const [email, setEmail] = useState("");
-  const [verifiedStudent, setVerifiedStudent] = useState<{ name: string; studentId: string } | null>(null);
-
-  // Step 1
-  const [walletAddress, setWalletAddress] = useState("");
+  const [verifiedStudent, setVerifiedStudent] = useState<{ name: string; studentId: string; email?: string } | null>(null);
 
   const clearError = () => setError("");
 
-  // ── Step 0: Verify student identity ───────────────────────────
   const handleVerify = async () => {
     clearError();
     if (!studentId.trim() || !email.trim()) {
       setError("Please fill in both fields.");
       return;
     }
+
     setLoading(true);
     try {
       const { data } = await axios.post("/api/students/verify", { studentId, email });
@@ -48,32 +41,16 @@ export default function RegisterPage() {
     }
   };
 
-  // ── Step 1: Connect MetaMask ───────────────────────────────────
-  const handleConnectWallet = async () => {
-    clearError();
-    setLoading(true);
-    try {
-      const address = await connectWallet();
-      setWalletAddress(address);
-      setStep(2);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to connect wallet.";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── Step 2: Submit registration ────────────────────────────────
   const handleSubmit = async () => {
     clearError();
+    if (!verifiedStudent) return;
+
     setLoading(true);
     try {
       await axios.post("/api/students/register", {
-        studentId: verifiedStudent?.studentId,
-        walletAddress,
+        studentId: verifiedStudent.studentId,
       });
-      setStep(3);
+      setStep(2);
     } catch (err: unknown) {
       const msg = axios.isAxiosError(err) ? err.response?.data?.error : "Registration failed.";
       setError(msg || "Registration failed.");
@@ -85,7 +62,7 @@ export default function RegisterPage() {
   return (
     <>
       <Head>
-        <title>Register — VoteChain</title>
+        <title>Register - VoteChain</title>
       </Head>
       <Navbar />
 
@@ -93,21 +70,17 @@ export default function RegisterPage() {
         <div className="max-w-lg mx-auto">
           <div className="text-center mb-8">
             <h1 className="font-heading text-4xl font-bold text-au-blue">Voter Registration</h1>
-            <p className="text-gray-500 mt-2 text-sm">ACOMSS 2026–2027 Elections</p>
+            <p className="text-gray-500 mt-2 text-sm">ACOMSS 2026-2027 Elections</p>
           </div>
 
-          {/* Step bar */}
           <StepBar steps={STEPS} currentStep={step} />
 
-          {/* Card */}
           <div className="card mt-6">
             <div className="card-header">
               <h2 className="font-heading text-xl font-bold">{STEPS[step]?.label}</h2>
               <p className="text-blue-200 text-xs mt-0.5">{STEPS[step]?.description}</p>
             </div>
             <div className="card-body">
-
-              {/* ── STEP 0: Identity verification ── */}
               {step === 0 && (
                 <div className="space-y-4">
                   <div>
@@ -140,17 +113,12 @@ export default function RegisterPage() {
 
                   {error && <ErrorBox message={error} />}
 
-                  <button
-                    onClick={handleVerify}
-                    disabled={loading}
-                    className="btn-primary w-full"
-                  >
-                    {loading ? "Verifying..." : "Verify Identity →"}
+                  <button onClick={handleVerify} disabled={loading} className="btn-primary w-full">
+                    {loading ? "Verifying..." : "Verify Identity ->"}
                   </button>
                 </div>
               )}
 
-              {/* ── STEP 1: Connect wallet ── */}
               {step === 1 && verifiedStudent && (
                 <div className="space-y-5">
                   <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex items-center gap-3">
@@ -167,46 +135,17 @@ export default function RegisterPage() {
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-blue-700 text-sm">
                     <p className="font-semibold mb-1 flex items-center gap-2">
-                      <AppIcon name="metamask" className="h-5 w-5 text-au-blue" />
-                      Connect your MetaMask wallet
+                      <AppIcon name="shield" className="h-5 w-5 text-au-blue" />
+                      Session-based voting access
                     </p>
                     <p className="text-xs text-blue-500">
-                      Make sure MetaMask is installed and you are connected to the{" "}
-                      <strong>Hardhat localhost network</strong> (Chain ID: 31337).
+                      Once approved by the admin, you will sign in with your Student ID and school email to access the ballot.
                     </p>
                   </div>
-
-                  {error && <ErrorBox message={error} />}
-
-                  <button
-                    onClick={handleConnectWallet}
-                    disabled={loading}
-                    className="btn-gold w-full"
-                  >
-                    {loading ? (
-                      "Connecting..."
-                    ) : (
-                      <span className="inline-flex items-center justify-center gap-2">
-                        <AppIcon name="metamask" className="h-5 w-5 text-au-blue-dark" />
-                        Connect MetaMask
-                      </span>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {/* ── STEP 2: Confirm submission ── */}
-              {step === 2 && verifiedStudent && (
-                <div className="space-y-5">
-                  <p className="text-gray-600 text-sm">Please confirm the following details before submitting:</p>
 
                   <div className="space-y-2">
                     <InfoRow label="Name" value={verifiedStudent.name} />
                     <InfoRow label="Student ID" value={verifiedStudent.studentId} />
-                    <InfoRow
-                      label="Wallet"
-                      value={`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
-                    />
                     <InfoRow label="Status after submit" value="Pending Admin Approval" highlight />
                   </div>
 
@@ -214,25 +153,23 @@ export default function RegisterPage() {
 
                   <div className="flex gap-3">
                     <button
-                      onClick={() => { setStep(1); clearError(); }}
+                      onClick={() => {
+                        setStep(0);
+                        clearError();
+                      }}
                       className="btn-outline flex-1"
                       disabled={loading}
                     >
-                      ← Back
+                      Back
                     </button>
-                    <button
-                      onClick={handleSubmit}
-                      disabled={loading}
-                      className="btn-primary flex-1"
-                    >
+                    <button onClick={handleSubmit} disabled={loading} className="btn-primary flex-1">
                       {loading ? "Submitting..." : "Submit Registration"}
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* ── STEP 3: Done ── */}
-              {step === 3 && (
+              {step === 2 && (
                 <div className="text-center space-y-5 py-4">
                   <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
                     <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -242,13 +179,12 @@ export default function RegisterPage() {
                   <div>
                     <h3 className="font-heading text-2xl font-bold text-au-blue">Registration Submitted!</h3>
                     <p className="text-gray-500 text-sm mt-2">
-                      Your wallet has been submitted for approval. The admin will review your registration
-                      shortly. Return to the voting page once your status is approved.
+                      Your registration is waiting for admin approval. Once approved, go to the voting page and sign in with your student details.
                     </p>
                   </div>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-left text-xs text-gray-500 space-y-1">
                     <p><span className="font-semibold">Name:</span> {verifiedStudent?.name}</p>
-                    <p><span className="font-semibold">Wallet:</span> {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}</p>
+                    <p><span className="font-semibold">Student ID:</span> {verifiedStudent?.studentId}</p>
                     <p><span className="font-semibold">Status:</span> <span className="badge-pending">Pending</span></p>
                   </div>
                   <a href="/" className="btn-primary inline-block">
@@ -256,7 +192,6 @@ export default function RegisterPage() {
                   </a>
                 </div>
               )}
-
             </div>
           </div>
         </div>
@@ -265,7 +200,6 @@ export default function RegisterPage() {
   );
 }
 
-// ── Small helpers ─────────────────────────────────────────────────────────────
 function ErrorBox({ message }: { message: string }) {
   return (
     <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm">

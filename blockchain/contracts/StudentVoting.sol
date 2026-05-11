@@ -35,22 +35,22 @@ contract StudentVoting {
     Position[] private _positions;
     Candidate[] private _candidates;
 
-    mapping(address => bool) public isWhitelisted;
-    mapping(address => bool) public hasVoted;
+    mapping(bytes32 => bool) public authorizedVoters;
+    mapping(bytes32 => bool) public hasVoted;
 
     // ─────────────────────────────────────────────────────────────
     // Events
     // ─────────────────────────────────────────────────────────────
 
-    event Whitelisted(address indexed wallet);
-    event WhitelistRevoked(address indexed wallet);
+    event VoterAuthorized(bytes32 indexed voterId);
+    event VoterRevoked(bytes32 indexed voterId);
     event PositionAdded(uint256 indexed id, string name);
     event PositionRemoved(uint256 indexed id);
     event CandidateAdded(uint256 indexed id, string name, uint256 positionId);
     event CandidateRemoved(uint256 indexed id);
     event VotingOpened();
     event VotingClosed();
-    event VoteCast(address indexed voter);
+    event VoteCast(bytes32 indexed voterId);
 
     // ─────────────────────────────────────────────────────────────
     // Modifiers
@@ -84,17 +84,17 @@ contract StudentVoting {
     // Admin — Whitelist
     // ─────────────────────────────────────────────────────────────
 
-    function whitelist(address wallet) external onlyAdmin {
-        require(wallet != address(0), "Invalid address");
-        require(!isWhitelisted[wallet], "Already whitelisted");
-        isWhitelisted[wallet] = true;
-        emit Whitelisted(wallet);
+    function authorizeVoter(bytes32 voterId) external onlyAdmin {
+        require(voterId != bytes32(0), "Invalid voter");
+        require(!authorizedVoters[voterId], "Already authorized");
+        authorizedVoters[voterId] = true;
+        emit VoterAuthorized(voterId);
     }
 
-    function revokeWhitelist(address wallet) external onlyAdmin {
-        require(isWhitelisted[wallet], "Not whitelisted");
-        isWhitelisted[wallet] = false;
-        emit WhitelistRevoked(wallet);
+    function revokeVoter(bytes32 voterId) external onlyAdmin {
+        require(authorizedVoters[voterId], "Not authorized");
+        authorizedVoters[voterId] = false;
+        emit VoterRevoked(voterId);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -190,12 +190,13 @@ contract StudentVoting {
     /// @notice Cast votes for multiple positions in one transaction
     /// @param positionIds Array of position IDs being voted on
     /// @param candidateIds Array of candidate IDs (must match positionIds by index)
-    function vote(uint256[] calldata positionIds, uint256[] calldata candidateIds)
+    function vote(bytes32 voterId, uint256[] calldata positionIds, uint256[] calldata candidateIds)
         external
+        onlyAdmin
         whenOpen
     {
-        require(isWhitelisted[msg.sender], "Not whitelisted");
-        require(!hasVoted[msg.sender], "Already voted");
+        require(authorizedVoters[voterId], "Not authorized");
+        require(!hasVoted[voterId], "Already voted");
         require(positionIds.length == candidateIds.length, "Array length mismatch");
         require(positionIds.length > 0, "No votes provided");
 
@@ -223,8 +224,8 @@ contract StudentVoting {
             require(valid, "Invalid candidate for position");
         }
 
-        hasVoted[msg.sender] = true;
-        emit VoteCast(msg.sender);
+        hasVoted[voterId] = true;
+        emit VoteCast(voterId);
     }
 
     // ─────────────────────────────────────────────────────────────

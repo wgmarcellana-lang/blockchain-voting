@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/adminAuth";
-import { fundLocalWallet } from "@/lib/localFaucet";
+import { getReadOnlyContract } from "@/lib/contract";
+import { getServerSignerContract } from "@/lib/serverContract";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!requireAdmin(req, res)) return;
@@ -31,24 +32,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  // Update status to approved
-  // Note: The actual on-chain whitelist() call is made by the admin's MetaMask in the frontend
+  const readContract = getReadOnlyContract();
+  const alreadyAuthorized = await readContract.authorizedVoters(registration.voterId);
+
+  if (!alreadyAuthorized) {
+    const signerContract = getServerSignerContract();
+    const tx = await signerContract.authorizeVoter(registration.voterId);
+    await tx.wait();
+  }
+
   const updated = await prisma.registration.update({
     where: { id: Number(registrationId) },
-    data: { status: "approved" },
+    data: { status: "approved", approvedAt: new Date() },
   });
-
-  const faucet = await fundLocalWallet(updated.walletAddress).catch((error: unknown) => ({
-    funded: false,
-    reason: error instanceof Error ? error.message : "Failed to fund local wallet",
-  }));
 
   return res.status(200).json({
     success: true,
     data: {
-      walletAddress: updated.walletAddress,
+      voterId: updated.voterId,
       status: updated.status,
-      faucet,
+      alreadyAuthorized,
     },
   });
 }

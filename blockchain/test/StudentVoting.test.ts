@@ -3,6 +3,10 @@ import { ethers } from "hardhat";
 import { StudentVoting } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
+const voter1Id = ethers.id("student-1");
+const voter2Id = ethers.id("student-2");
+const voter3Id = ethers.id("student-3");
+
 describe("StudentVoting", function () {
   let contract: StudentVoting;
   let admin: HardhatEthersSigner;
@@ -80,35 +84,35 @@ describe("StudentVoting", function () {
   // Whitelist
   // ─────────────────────────────────────────────────────────────
 
-  describe("Whitelist", function () {
-    it("admin can whitelist a wallet", async function () {
-      await contract.whitelist(student1.address);
-      expect(await contract.isWhitelisted(student1.address)).to.equal(true);
+  describe("Authorization", function () {
+    it("admin can authorize a voter", async function () {
+      await contract.authorizeVoter(voter1Id);
+      expect(await contract.authorizedVoters(voter1Id)).to.equal(true);
     });
 
-    it("non-admin cannot whitelist", async function () {
+    it("non-admin cannot authorize a voter", async function () {
       await expect(
-        contract.connect(stranger).whitelist(student1.address)
+        contract.connect(stranger).authorizeVoter(voter1Id)
       ).to.be.revertedWith("Not admin");
     });
 
-    it("cannot whitelist the same address twice", async function () {
-      await contract.whitelist(student1.address);
-      await expect(contract.whitelist(student1.address)).to.be.revertedWith(
-        "Already whitelisted"
+    it("cannot authorize the same voter twice", async function () {
+      await contract.authorizeVoter(voter1Id);
+      await expect(contract.authorizeVoter(voter1Id)).to.be.revertedWith(
+        "Already authorized"
       );
     });
 
-    it("admin can revoke whitelist", async function () {
-      await contract.whitelist(student1.address);
-      await contract.revokeWhitelist(student1.address);
-      expect(await contract.isWhitelisted(student1.address)).to.equal(false);
+    it("admin can revoke a voter", async function () {
+      await contract.authorizeVoter(voter1Id);
+      await contract.revokeVoter(voter1Id);
+      expect(await contract.authorizedVoters(voter1Id)).to.equal(false);
     });
 
-    it("cannot revoke non-whitelisted address", async function () {
+    it("cannot revoke a non-authorized voter", async function () {
       await expect(
-        contract.revokeWhitelist(stranger.address)
-      ).to.be.revertedWith("Not whitelisted");
+        contract.revokeVoter(voter3Id)
+      ).to.be.revertedWith("Not authorized");
     });
   });
 
@@ -217,42 +221,48 @@ describe("StudentVoting", function () {
 
   describe("Voting", function () {
     beforeEach(async function () {
-      await contract.whitelist(student1.address);
-      await contract.whitelist(student2.address);
+      await contract.authorizeVoter(voter1Id);
+      await contract.authorizeVoter(voter2Id);
       await contract.openVoting();
     });
 
-    it("whitelisted student can vote", async function () {
+    it("admin can submit a vote for an authorized voter", async function () {
       await contract
-        .connect(student1)
         .vote(
+          voter1Id,
           [presidentPositionId, secretaryPositionId],
           [candidate1Id, candidate3Id]
         );
-      expect(await contract.hasVoted(student1.address)).to.equal(true);
+      expect(await contract.hasVoted(voter1Id)).to.equal(true);
     });
 
-    it("non-whitelisted wallet cannot vote", async function () {
+    it("rejects non-authorized voters", async function () {
+      await expect(
+        contract
+          .vote(voter3Id, [presidentPositionId], [candidate1Id])
+      ).to.be.revertedWith("Not authorized");
+    });
+
+    it("non-admin cannot submit votes", async function () {
       await expect(
         contract
           .connect(stranger)
-          .vote([presidentPositionId], [candidate1Id])
-      ).to.be.revertedWith("Not whitelisted");
+          .vote(voter1Id, [presidentPositionId], [candidate1Id])
+      ).to.be.revertedWith("Not admin");
     });
 
     it("cannot vote twice", async function () {
       await contract
-        .connect(student1)
-        .vote([presidentPositionId], [candidate1Id]);
+        .vote(voter1Id, [presidentPositionId], [candidate1Id]);
       await expect(
-        contract.connect(student1).vote([presidentPositionId], [candidate1Id])
+        contract.vote(voter1Id, [presidentPositionId], [candidate1Id])
       ).to.be.revertedWith("Already voted");
     });
 
     it("cannot vote when voting is closed", async function () {
       await contract.closeVoting();
       await expect(
-        contract.connect(student1).vote([presidentPositionId], [candidate1Id])
+        contract.vote(voter1Id, [presidentPositionId], [candidate1Id])
       ).to.be.revertedWith("Voting is not open");
     });
 
@@ -260,24 +270,21 @@ describe("StudentVoting", function () {
       // candidate3Id belongs to secretary, not president
       await expect(
         contract
-          .connect(student1)
-          .vote([presidentPositionId], [candidate3Id])
+          .vote(voter1Id, [presidentPositionId], [candidate3Id])
       ).to.be.revertedWith("Invalid candidate for position");
     });
 
     it("rejects mismatched array lengths", async function () {
       await expect(
         contract
-          .connect(student1)
-          .vote([presidentPositionId, secretaryPositionId], [candidate1Id])
+          .vote(voter1Id, [presidentPositionId, secretaryPositionId], [candidate1Id])
       ).to.be.revertedWith("Array length mismatch");
     });
 
     it("rejects duplicate positions in one ballot", async function () {
       await expect(
         contract
-          .connect(student1)
-          .vote([presidentPositionId, presidentPositionId], [candidate1Id, candidate2Id])
+          .vote(voter1Id, [presidentPositionId, presidentPositionId], [candidate1Id, candidate2Id])
       ).to.be.revertedWith("Duplicate position");
     });
   });
@@ -288,7 +295,7 @@ describe("StudentVoting", function () {
 
   describe("Results", function () {
     it("cannot get results while voting is open", async function () {
-      await contract.whitelist(student1.address);
+      await contract.authorizeVoter(voter1Id);
       await contract.openVoting();
       await expect(contract.getResults()).to.be.revertedWith(
         "Voting is still open"
@@ -296,16 +303,12 @@ describe("StudentVoting", function () {
     });
 
     it("returns correct vote counts after voting closes", async function () {
-      await contract.whitelist(student1.address);
-      await contract.whitelist(student2.address);
+      await contract.authorizeVoter(voter1Id);
+      await contract.authorizeVoter(voter2Id);
       await contract.openVoting();
 
-      await contract
-        .connect(student1)
-        .vote([presidentPositionId], [candidate1Id]);
-      await contract
-        .connect(student2)
-        .vote([presidentPositionId], [candidate1Id]);
+      await contract.vote(voter1Id, [presidentPositionId], [candidate1Id]);
+      await contract.vote(voter2Id, [presidentPositionId], [candidate1Id]);
 
       await contract.closeVoting();
       const results = await contract.getResults();

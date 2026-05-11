@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/adminAuth";
+import { getReadOnlyContract } from "@/lib/contract";
+import { getServerSignerContract } from "@/lib/serverContract";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!requireAdmin(req, res)) return;
@@ -28,6 +30,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(404).json({ success: false, error: "Registration not found" });
   }
 
+  if (registration.status === "approved") {
+    const readContract = getReadOnlyContract();
+    const [isAuthorized, hasVoted] = await Promise.all([
+      readContract.authorizedVoters(registration.voterId),
+      readContract.hasVoted(registration.voterId),
+    ]);
+
+    if (hasVoted) {
+      return res.status(409).json({ success: false, error: "This voter has already voted and cannot be reset." });
+    }
+
+    if (isAuthorized) {
+      const signerContract = getServerSignerContract();
+      const tx = await signerContract.revokeVoter(registration.voterId);
+      await tx.wait();
+    }
+  }
+
   await prisma.registration.delete({
     where: { id: Number(registrationId) },
   });
@@ -37,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     data: {
       studentName: registration.student.name,
       studentId: registration.student.studentId,
-      walletAddress: registration.walletAddress,
+      voterId: registration.voterId,
       previousStatus: registration.status,
     },
   });

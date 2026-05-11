@@ -9,7 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const students = await prisma.student.findMany({
       include: {
         registration: {
-          select: { walletAddress: true, status: true, createdAt: true },
+          select: { voterId: true, status: true, createdAt: true, approvedAt: true },
         },
       },
       orderBy: { createdAt: "asc" },
