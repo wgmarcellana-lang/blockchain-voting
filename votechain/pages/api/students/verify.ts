@@ -6,15 +6,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
-  const { studentId, email } = req.body;
+  const { name, studentId, email } = req.body;
 
-  if (!studentId || !email) {
-    return res.status(400).json({ success: false, error: "Student ID and email are required" });
+  if (!name || !studentId || !email) {
+    return res.status(400).json({ success: false, error: "Full name, student ID, and email are required" });
   }
 
   const normalizedEmail = String(email).toLowerCase().trim();
+  const normalizedStudentId = String(studentId).trim();
+  const trimmedName = String(name).trim();
 
-  // Validate email domain
   if (!normalizedEmail.endsWith("@adamson.edu.ph")) {
     return res.status(400).json({
       success: false,
@@ -22,44 +23,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  // Look up student in DB
   const student = await prisma.student.findFirst({
     where: {
-      studentId: String(studentId),
-      email: normalizedEmail,
+      OR: [{ studentId: normalizedStudentId }, { email: normalizedEmail }],
     },
     include: { registration: true },
   });
 
-  if (!student) {
-    return res.status(404).json({
-      success: false,
-      error: "No student record found with that ID and email combination",
-    });
-  }
+  if (student) {
+    const exactMatch =
+      student.studentId === normalizedStudentId &&
+      student.email === normalizedEmail;
 
-  // Check if already registered
-  if (student.registration) {
-    const status = student.registration.status;
-    if (status === "pending") {
+    if (!exactMatch) {
+      return res.status(409).json({
+        success: false,
+        error: "That student ID or Adamson email is already being used by another registration.",
+      });
+    }
+
+    if (student.registration?.status === "pending") {
       return res.status(409).json({
         success: false,
         error: "You have already submitted a registration. Please wait for admin approval.",
         status: "pending",
       });
     }
-    if (status === "approved") {
+    if (student.registration?.status === "approved") {
       return res.status(409).json({
         success: false,
         error: "Your registration is already approved. Please continue to the voting page and sign in there.",
         status: "approved",
-        voterId: student.registration.voterId,
       });
     }
-    if (status === "rejected") {
+    if (student.registration?.status === "rejected") {
       return res.status(409).json({
         success: false,
-        error: "Your previous registration was rejected. Please contact the admin.",
+        error: "Your previous registration was rejected. Please contact the admin if you need another review.",
         status: "rejected",
       });
     }
@@ -68,9 +68,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   return res.status(200).json({
     success: true,
     data: {
-      studentId: student.studentId,
-      name: student.name,
-      email: student.email,
+      studentId: normalizedStudentId,
+      name: trimmedName,
+      email: normalizedEmail,
     },
   });
 }

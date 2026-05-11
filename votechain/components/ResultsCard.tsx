@@ -9,7 +9,10 @@ interface ResultsCardProps {
 export default function ResultsCard({ positionName, candidates }: ResultsCardProps) {
   const totalVotes = candidates.reduce((sum, c) => sum + c.voteCount, 0);
   const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
-  const winner = sorted[0];
+  const topVoteCount = sorted[0]?.voteCount ?? 0;
+  const leaders = sorted.filter((candidate) => candidate.voteCount === topVoteCount);
+  const hasTie = totalVotes > 0 && leaders.length > 1;
+  const winner = !hasTie ? sorted[0] : undefined;
 
   return (
     <div className="card">
@@ -18,26 +21,32 @@ export default function ResultsCard({ positionName, candidates }: ResultsCardPro
         <span className="text-blue-200 text-xs">{totalVotes} vote{totalVotes !== 1 ? "s" : ""}</span>
       </div>
       <div className="card-body space-y-3">
-        {sorted.map((candidate, index) => {
+        {sorted.map((candidate) => {
           const pct = totalVotes > 0 ? Math.round((candidate.voteCount / totalVotes) * 100) : 0;
           const isWinner = candidate.id === winner?.id && totalVotes > 0;
+          const isTiedLeader = hasTie && candidate.voteCount === topVoteCount;
 
           return (
             <div key={candidate.id} className="space-y-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {isWinner && (
+                  {(isWinner || isTiedLeader) && (
                     <AppIcon name="trophy" className="h-4 w-4 text-au-gold" />
                   )}
                   <span
                     className={`text-sm font-semibold ${
-                      isWinner ? "text-au-blue" : "text-gray-700"
+                      isWinner || isTiedLeader ? "text-au-blue" : "text-gray-700"
                     }`}
                   >
                     {candidate.name}
                   </span>
                   {isWinner && (
                     <span className="badge-approved text-xs">Winner</span>
+                  )}
+                  {isTiedLeader && (
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                      Tie
+                    </span>
                   )}
                 </div>
                 <div className="text-right">
@@ -49,7 +58,7 @@ export default function ResultsCard({ positionName, candidates }: ResultsCardPro
               <div className="w-full bg-gray-100 rounded-full h-2.5">
                 <div
                   className={`h-2.5 rounded-full transition-all duration-700 ${
-                    isWinner ? "bg-au-gold" : "bg-au-blue-mid/40"
+                    isWinner || isTiedLeader ? "bg-au-gold" : "bg-au-blue-mid/40"
                   }`}
                   style={{ width: `${pct}%` }}
                 />

@@ -6,8 +6,7 @@ export default function Navbar() {
 
   const links = [
     { href: "/", label: "Home" },
-    { href: "/register", label: "Register" },
-    { href: "/vote", label: "Vote" },
+    { href: "/register", label: "Student" },
     { href: "/results", label: "Results" },
   ];
 

@@ -17,8 +17,8 @@ export default function Home() {
     {
       icon: "padlock" as AppIconName,
       tone: "bg-blue-50",
-      title: "Identity-Gated Access",
-      desc: "Only verified students with valid school credentials can proceed. No outsiders, no duplicates.",
+      title: "Admin-Reviewed Access",
+      desc: "Students submit their school details first, then the election admin decides who gets approved to vote.",
     },
     {
       icon: "shield" as AppIconName,
@@ -57,8 +57,8 @@ export default function Home() {
       icon: "id" as AppIconName,
       ring: "border-blue-200 bg-blue-50",
       step: "1",
-      title: "Verify Identity",
-      desc: "Enter your Student ID and school email. Your identity is checked against the ACOMSS registry.",
+      title: "Submit Details",
+      desc: "Enter your full name, Student ID, and Adamson email to create a pending voter registration.",
     },
     {
       icon: "envelope" as AppIconName,

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import axios from "axios";
 import Navbar from "@/components/Navbar";
 import CandidateCard from "@/components/CandidateCard";
@@ -20,6 +21,7 @@ type VoteStatus =
   | "success";
 
 export default function VotePage() {
+  const router = useRouter();
   const [status, setStatus] = useState<VoteStatus>("checking_session");
   const [studentName, setStudentName] = useState("");
   const [studentId, setStudentId] = useState("");
@@ -99,6 +101,11 @@ export default function VotePage() {
     setEmail("");
     setError("");
     setStatus("login");
+  };
+
+  const handleSwitchStudent = async () => {
+    await handleLogout();
+    router.push("/register");
   };
 
   const handleSelect = (positionId: string, candidateId: string) => {
@@ -186,7 +193,12 @@ export default function VotePage() {
               icon="padlock"
               title="Voting Access Not Approved"
               desc="Your account is not currently authorized to cast a vote on-chain. Please contact the election admin if this seems incorrect."
-              action={<a href="/register" className="btn-primary inline-block">Go to Registration</a>}
+              action={
+                <div className="flex flex-col gap-3">
+                  <a href="/register" className="btn-primary inline-block">Go to Student Access</a>
+                  <button onClick={handleSwitchStudent} className="btn-outline">Switch Student</button>
+                </div>
+              }
               variant="warning"
             />
           )}
@@ -196,7 +208,12 @@ export default function VotePage() {
               icon="check"
               title="You Have Already Voted"
               desc="Your vote has already been recorded on the blockchain. Thank you for participating."
-              action={<a href="/results" className="btn-primary inline-block">View Results</a>}
+              action={
+                <div className="flex flex-col gap-3">
+                  <a href="/results" className="btn-primary inline-block">View Results</a>
+                  <button onClick={handleSwitchStudent} className="btn-outline">Switch Student</button>
+                </div>
+              }
               variant="success"
             />
           )}
