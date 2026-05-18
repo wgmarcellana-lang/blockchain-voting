@@ -236,6 +236,26 @@ describe("StudentVoting", function () {
       expect(await contract.hasVoted(voter1Id)).to.equal(true);
     });
 
+    it("deducts gas from the signer when a vote is submitted on-chain", async function () {
+      const balanceBefore = await ethers.provider.getBalance(admin.address);
+      const tx = await contract.vote(
+        voter1Id,
+        [presidentPositionId, secretaryPositionId],
+        [candidate1Id, candidate3Id]
+      );
+      const receipt = await tx.wait();
+      const balanceAfter = await ethers.provider.getBalance(admin.address);
+
+      expect(receipt).to.not.equal(null);
+      const gasFee = receipt!.gasUsed * receipt!.gasPrice;
+
+      expect(receipt!.hash).to.equal(tx.hash);
+      expect(receipt!.gasUsed).to.be.greaterThan(0n);
+      expect(gasFee).to.be.greaterThan(0n);
+      expect(balanceBefore - balanceAfter).to.equal(gasFee);
+      expect(await contract.hasVoted(voter1Id)).to.equal(true);
+    });
+
     it("rejects non-authorized voters", async function () {
       await expect(
         contract

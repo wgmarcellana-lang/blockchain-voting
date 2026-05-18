@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import axios from "axios";
+import { formatEther } from "ethers";
 import Navbar from "@/components/Navbar";
 import CandidateCard from "@/components/CandidateCard";
 import BallotReview from "@/components/BallotReview";
@@ -20,6 +21,19 @@ type VoteStatus =
   | "submitting"
   | "success";
 
+type ChainProof = {
+  txHash: string;
+  contractAddress: string;
+  signerAddress: string;
+  blockNumber: number;
+  gasUsed: string;
+  gasPriceWei: string;
+  gasFeeWei: string;
+  balanceBeforeWei: string;
+  balanceAfterWei: string;
+  balanceDeductedWei: string;
+};
+
 export default function VotePage() {
   const router = useRouter();
   const [status, setStatus] = useState<VoteStatus>("checking_session");
@@ -29,7 +43,7 @@ export default function VotePage() {
   const [positions, setPositions] = useState<PositionUI[]>([]);
   const [candidates, setCandidates] = useState<CandidateUI[]>([]);
   const [selections, setSelections] = useState<BallotSelections>({});
-  const [txHash, setTxHash] = useState("");
+  const [chainProof, setChainProof] = useState<ChainProof | null>(null);
   const [error, setError] = useState("");
 
   const checkVoteStatus = async () => {
@@ -95,7 +109,7 @@ export default function VotePage() {
   const handleLogout = async () => {
     await axios.post("/api/auth/student-logout");
     setSelections({});
-    setTxHash("");
+    setChainProof(null);
     setStudentName("");
     setStudentId("");
     setEmail("");
@@ -120,7 +134,7 @@ export default function VotePage() {
 
     try {
       const { data } = await axios.post("/api/vote/submit", { selections });
-      setTxHash(data.data.txHash);
+      setChainProof(data.data);
       setStatus("success");
     } catch (err: unknown) {
       const message = axios.isAxiosError(err) ? err.response?.data?.error : "Vote submission failed.";
@@ -235,11 +249,7 @@ export default function VotePage() {
               variant="success"
               action={
                 <div className="space-y-3 w-full">
-                  {txHash && (
-                    <div className="bg-gray-100 rounded-lg px-4 py-2 text-xs text-gray-500 break-all text-center">
-                      <span className="font-semibold text-gray-700">Tx Hash:</span> {txHash}
-                    </div>
-                  )}
+                  {chainProof && <BlockchainProof proof={chainProof} />}
                   <div className="flex flex-col gap-3">
                     <a href="/results" className="btn-primary inline-block">View Results</a>
                     <button onClick={handleLogout} className="btn-outline">Sign Out</button>
@@ -320,6 +330,37 @@ export default function VotePage() {
         </div>
       </main>
     </>
+  );
+}
+
+function BlockchainProof({ proof }: { proof: ChainProof }) {
+  const rows = [
+    ["Contract", proof.contractAddress],
+    ["Tx Hash", proof.txHash],
+    ["Block", String(proof.blockNumber)],
+    ["Signer", proof.signerAddress],
+    ["Gas Used", proof.gasUsed],
+    ["Gas Price", `${proof.gasPriceWei} wei`],
+    ["Gas Fee", `${formatEther(proof.gasFeeWei)} ETH`],
+    ["Before", `${formatEther(proof.balanceBeforeWei)} ETH`],
+    ["After", `${formatEther(proof.balanceAfterWei)} ETH`],
+    ["Deducted", `${formatEther(proof.balanceDeductedWei)} ETH`],
+  ];
+
+  return (
+    <div className="rounded-lg border border-green-200 bg-white text-left shadow-sm">
+      <div className="border-b border-green-100 px-4 py-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-green-700">Blockchain Receipt</p>
+      </div>
+      <dl className="divide-y divide-gray-100">
+        {rows.map(([label, value]) => (
+          <div key={label} className="grid grid-cols-[88px_1fr] gap-3 px-4 py-2 text-xs">
+            <dt className="font-semibold text-gray-600">{label}</dt>
+            <dd className="break-all font-mono text-gray-500">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 

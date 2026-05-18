@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { getReadOnlyContract } from "@/lib/contract";
-import { getServerSignerContract } from "@/lib/serverContract";
+import { getServerSigner, getServerSignerContract } from "@/lib/serverContract";
 import { requireVoter } from "@/lib/voterAuth";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -49,14 +49,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const positionIds = Object.keys(selections).map(BigInt);
     const candidateIds = Object.values(selections).map(BigInt);
 
+    const signer = getServerSigner();
     const contract = getServerSignerContract();
     const tx = await contract.vote(session.voterId, positionIds, candidateIds);
-    await tx.wait();
+    const receipt = await tx.wait();
+
+    if (!receipt) {
+      throw new Error("Vote transaction was submitted but no receipt was returned");
+    }
+
+    const gasUsed = BigInt(receipt.gasUsed.toString());
+    const gasPrice = BigInt(receipt.gasPrice.toString());
+    const gasFee = gasUsed * gasPrice;
+    const balanceAfter = await signer.provider!.getBalance(signer.address, receipt.blockNumber);
+    const balanceBefore = balanceAfter + gasFee;
 
     return res.status(200).json({
       success: true,
       data: {
         txHash: tx.hash,
+        contractAddress: await contract.getAddress(),
+        signerAddress: signer.address,
+        blockNumber: receipt.blockNumber,
+        gasUsed: gasUsed.toString(),
+        gasPriceWei: gasPrice.toString(),
+        gasFeeWei: gasFee.toString(),
+        balanceBeforeWei: balanceBefore.toString(),
+        balanceAfterWei: balanceAfter.toString(),
+        balanceDeductedWei: (balanceBefore - balanceAfter).toString(),
       },
     });
   } catch (error: unknown) {

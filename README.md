@@ -167,6 +167,7 @@ Password: acomss
 13. Close voting.
 14. Visit `/results`.
 
+
 Suggested positions:
 
 ```text
