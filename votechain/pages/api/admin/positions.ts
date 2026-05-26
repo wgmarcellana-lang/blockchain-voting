@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { requireAdmin } from "@/lib/adminAuth";
-import { getServerSignerContract } from "@/lib/serverContract";
+import { getServerSigner, getServerSignerContract, waitForTransactionWithGasLog } from "@/lib/serverContract";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!requireAdmin(req, res)) return;
@@ -14,8 +14,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
+      const signer = getServerSigner();
+      const balanceBefore = await signer.provider!.getBalance(signer.address);
       const tx = await contract.addPosition(String(name).trim());
-      await tx.wait();
+      await waitForTransactionWithGasLog("Add Position", tx, balanceBefore);
       return res.status(200).json({ success: true, data: { txHash: tx.hash } });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to add position";
@@ -30,8 +32,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
+      const signer = getServerSigner();
+      const balanceBefore = await signer.provider!.getBalance(signer.address);
       const tx = await contract.removePosition(BigInt(id));
-      await tx.wait();
+      await waitForTransactionWithGasLog("Remove Position", tx, balanceBefore);
       return res.status(200).json({ success: true, data: { txHash: tx.hash } });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to remove position";

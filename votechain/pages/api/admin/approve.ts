@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/adminAuth";
 import { getReadOnlyContract } from "@/lib/contract";
-import { getServerSignerContract } from "@/lib/serverContract";
+import { getServerSigner, getServerSignerContract, waitForTransactionWithGasLog } from "@/lib/serverContract";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!requireAdmin(req, res)) return;
@@ -36,9 +36,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const alreadyAuthorized = await readContract.authorizedVoters(registration.voterId);
 
   if (!alreadyAuthorized) {
+    const signer = getServerSigner();
+    const balanceBefore = await signer.provider!.getBalance(signer.address);
     const signerContract = getServerSignerContract();
     const tx = await signerContract.authorizeVoter(registration.voterId);
-    await tx.wait();
+    await waitForTransactionWithGasLog("Authorize Voter", tx, balanceBefore);
   }
 
   const updated = await prisma.registration.update({

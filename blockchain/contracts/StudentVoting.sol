@@ -8,12 +8,14 @@ contract StudentVoting {
     // Structs
     // ─────────────────────────────────────────────────────────────
 
+    // represents position (ex: 5, pres, true)
     struct Position {
         uint256 id;
         string name;
         bool active;
     }
 
+    // represents candidate (ex: 1, yohan, 5, 0, true)
     struct Candidate {
         uint256 id;
         string name;
@@ -26,18 +28,17 @@ contract StudentVoting {
     // State
     // ─────────────────────────────────────────────────────────────
 
-    address public admin;
-    bool public votingOpen;
+    address public admin;               // admin wallet
+    bool public votingOpen;     // voting status
 
-    uint256 private _positionCounter;
+    uint256 private _positionCounter;   
     uint256 private _candidateCounter;
 
-    Position[] private _positions;
-    Candidate[] private _candidates;
+    Position[] private _positions;  // stores positions
+    Candidate[] private _candidates;  // stores candidates
 
-    mapping(bytes32 => bool) public authorizedVoters;
-    mapping(bytes32 => bool) public hasVoted;
-
+    mapping(bytes32 => bool) public authorizedVoters;  // list of approved voters
+    mapping(bytes32 => bool) public hasVoted; // tracks who voted
     // ─────────────────────────────────────────────────────────────
     // Events
     // ─────────────────────────────────────────────────────────────
