@@ -32,28 +32,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  const readContract = getReadOnlyContract();
-  const alreadyAuthorized = await readContract.authorizedVoters(registration.voterId);
+  try {
+    const readContract = getReadOnlyContract();
+    const alreadyAuthorized = await readContract.authorizedVoters(registration.voterId);
 
-  if (!alreadyAuthorized) {
-    const signer = getServerSigner();
-    const balanceBefore = await signer.provider!.getBalance(signer.address);
-    const signerContract = getServerSignerContract();
-    const tx = await signerContract.authorizeVoter(registration.voterId);
-    await waitForTransactionWithGasLog("Authorize Voter", tx, balanceBefore);
+    if (!alreadyAuthorized) {
+      const signer = getServerSigner();
+      const balanceBefore = await signer.provider!.getBalance(signer.address);
+      const signerContract = getServerSignerContract();
+      const tx = await signerContract.authorizeVoter(registration.voterId);
+      await waitForTransactionWithGasLog("Authorize Voter", tx, balanceBefore);
+    }
+
+    const updated = await prisma.registration.update({
+      where: { id: Number(registrationId) },
+      data: { status: "approved", approvedAt: new Date() },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        voterId: updated.voterId,
+        status: updated.status,
+        alreadyAuthorized,
+      },
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to approve registration.";
+    return res.status(500).json({ success: false, error: message });
   }
-
-  const updated = await prisma.registration.update({
-    where: { id: Number(registrationId) },
-    data: { status: "approved", approvedAt: new Date() },
-  });
-
-  return res.status(200).json({
-    success: true,
-    data: {
-      voterId: updated.voterId,
-      status: updated.status,
-      alreadyAuthorized,
-    },
-  });
 }
